@@ -62,5 +62,5 @@ data = {'train_image': train_image,
         'train_label': train_label,
         'test_image': test_image,
         'test_label': test_label,}
-with open("data.pkl", 'wb') as file_handle:
+with open("MNIST.pkl", 'wb') as file_handle:
     pickle.dump(data, file_handle)
