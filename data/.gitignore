@@ -1,3 +1,4 @@
 *
 !.gitignore
 !download_MNIST.py
+!process_Omniglot_dataset.py
