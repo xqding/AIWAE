@@ -76,3 +76,5 @@ python ./script/AIWAE_NLL.py --dataset [MNIST,Omniglot]
 Note that calculating NLL with annealed importance sampling (AIS) can be slow. Inside both `./script/IWAE_NLL.py` and `./script/AIWAE_NLL.py`, there is a variable called `num_beta_hmc` that specifies the number of temperatures used in AIS.
 The accuracy of the calculated NLLs increases when increasing the value of this variable, which will slow down the calculation though. Therefore, you can change the value of the variable `num_beta_hmc` depends on how much computational resource you have.
 
+## Reference
+arXiv:1906.04904 [stat.ML]
