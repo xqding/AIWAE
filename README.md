@@ -6,5 +6,6 @@ The repository includes both the datasets and source code that reproduce the res
 It also includes code for calculating marginal probability density of samples using annealed importance sampling (AIS) and Hamiltonian Monte Carlo (HMC).
 
 ## Requirements
+Python >= 3.5.0
 
 
