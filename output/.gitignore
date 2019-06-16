@@ -1,2 +1,5 @@
 *
 !.gitignore
+!model
+!ELBO
+!NLL

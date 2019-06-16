@@ -17,7 +17,7 @@ import bisect
 parser = argparse.ArgumentParser(description="Annealed Importance Weighted Auto-Encoder")
 parser.add_argument("--dataset", type = str,
                     required = True)
-parser.add_argument("--hidden_size", type = int)
+parser.add_argument("--hidden_size", type = int, default = 50)
 parser.add_argument("--num_samples", type = int,
                     required = True,
                     help = """num of samples used in Monte Carlo estimate of 
@@ -32,23 +32,28 @@ num_samples = args.num_samples
 repeat = args.repeat
 
 ## read data
-with open('./data/data.pkl', 'rb') as file_handle:
-    data = pickle.load(file_handle)
-
-train_image = data['train_image']
-test_image = data['test_image']
-
-#batch_size = 256
-batch_size = 20
 if args.dataset == "MNIST":
+    with open("./data/MNIST.pkl", 'rb') as file_handle:
+        data = pickle.load(file_handle)
+        train_image = data['train_image']
+        test_image = data['test_image']
+        
     train_data = MNIST_Dataset(train_image)
-    test_data = MNIST_Dataset(test_image)    
-elif args.dataset == 'OMNIGLOT':
+    test_data = MNIST_Dataset(test_image)
+    
+elif args.dataset == "Omniglot":
+    with open("./data/Omniglot.pkl", 'rb') as file_handle:
+        data = pickle.load(file_handle)
+        train_image = data['train_image']
+        test_image = data['test_image']
+        
     train_data = OMNIGLOT_Dataset(train_image)
     test_data = OMNIGLOT_Dataset(test_image)
+    
 else:
-    raise("Dataset is wrong")
+    raise("Dataset is wrong!")
 
+batch_size = 20
 train_data_loader = DataLoader(train_data,
                                batch_size = batch_size,
                                shuffle = True)
@@ -104,10 +109,9 @@ while idx_epoch < num_epoch:
         # if idx_step >= 19:
         #     print("time used: {:.2f}".format(time.time() - start_time))
         #     exit()
-
         
     if np.isnan(loss.item()):
-        model_state_dict = torch.load("./output/model_hidden_size_2/IWAE_num_samples_{}_batch_size_{}_repeat_{}_restart.pt".format(num_samples, batch_size, repeat))
+        model_state_dict = torch.load("./output/model/IWAE_dataset_{}_num_samples_{}_repeat_{}_restart.pt".format(args.dataset, num_samples, repeat))
         aiwae.load_state_dict(model_state_dict['state_dict'])
         optimizer.load_state_dict(model_state_dict['optimizer_state_dict'])
         print("restart because of nan")
@@ -116,17 +120,17 @@ while idx_epoch < num_epoch:
     torch.save({'state_dict': aiwae.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'args': args},
-               "./output/model_hidden_size_2/IWAE_num_samples_{}_batch_size_{}_repeat_{}_restart.pt".format(num_samples, batch_size, repeat))
+               "./output/model/IWAE_dataset_{}_num_samples_{}_repeat_{}_restart.pt".format(args.dataset, num_samples, repeat))
         
-    if (idx_epoch + 1) % 80 == 0:
+    if (idx_epoch + 1) % 10 == 0:
         torch.save({'state_dict': aiwae.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'args': args},
-                   "./output/model_hidden_size_2/IWAE_num_samples_{}_batch_size_{}_epoch_{}_repeat_{}.pt".format(num_samples, batch_size, idx_epoch, repeat))    
+                   "./output/model/IWAE_dataset_{}_num_samples_{}_epoch_{}_repeat_{}.pt".format(args.dataset, num_samples, idx_epoch, repeat))    
     idx_epoch += 1
 
 torch.save({'state_dict': aiwae.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'args': args},
-           "./output/model_hidden_size_2/IWAE_num_samples_{}_batch_size_{}_epoch_{}_repeat_{}.pt".format(num_samples, batch_size, idx_epoch, repeat))
+           "./output/model/IWAE_dataset_{}_num_samples_{}_epoch_{}_repeat_{}.pt".format(args.dataset, num_samples, idx_epoch, repeat))
 exit()

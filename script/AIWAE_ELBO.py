@@ -36,51 +36,57 @@ parser.add_argument("--num_samples", type = int,
                     help = """num of samples used in Monte Carlo estimate of 
                               ELBO when using VAE; num of samples used in 
                               importance weighted ELBO when using IWAE.""")
+parser.add_argument("--hidden_size", type = int,
+                    required = True, default = 50)
 parser.add_argument("--num_beta", type = int,
                     required = True, default = 10)
 parser.add_argument("--epoch", type = int,
+                    required = True)
+parser.add_argument("--repeat", type = int,
                     required = True)
 
 ## parse parameters
 args = parser.parse_args()
 num_samples = args.num_samples
+hidden_size = args.hidden_size
 num_beta = args.num_beta
 epoch = args.epoch
+repeat = args.repeat
 
 ## read data
-with open('./data/data.pkl', 'rb') as file_handle:
-    data = pickle.load(file_handle)
-
-train_image = data['train_image']
-test_image = data['test_image']
-
-batch_size = 32
 if args.dataset == "MNIST":
+    with open("./data/MNIST.pkl", 'rb') as file_handle:
+        data = pickle.load(file_handle)
+        train_image = data['train_image']
+        test_image = data['test_image']
+        
     train_data = MNIST_Dataset(train_image)
-    test_data = MNIST_Dataset(test_image)    
-elif args.dataset == 'OMNIGLOT':
+    test_data = MNIST_Dataset(test_image)
+    
+elif args.dataset == "Omniglot":
+    with open("./data/Omniglot.pkl", 'rb') as file_handle:
+        data = pickle.load(file_handle)
+        train_image = data['train_image']
+        test_image = data['test_image']
+        
     train_data = OMNIGLOT_Dataset(train_image)
     test_data = OMNIGLOT_Dataset(test_image)
+    
 else:
-    raise("Dataset is wrong")
+    raise("Dataset is wrong!")
+
+batch_size = 32
 
 ## IWAE models
-hidden_size = 50
 input_size = train_image.shape[-1]
 output_size = train_image.shape[-1]
 
 aiwae = AIWAE(input_size, hidden_size)
 aiwae = aiwae.cuda()
 
-idx_repeat = int(os.environ['SLURM_ARRAY_TASK_ID'])
+idx_repeat = args.repeat
 
-## load the trained model
-# state_dict = torch.load("./output/model_from_turnip/AIWAE_num_samples_{}_num_beta_{}_epoch_{}.pt".format(
-#     num_samples, num_beta, epoch))
-# state_dict = torch.load("./output/model/AIWAE_num_samples_{}_num_beta_{}_epoch_{}.pt".format(
-#     num_samples, num_beta, epoch))
-state_dict = torch.load("./output/model/AIWAE_num_samples_{}_num_beta_{}_batch_size_128_epoch_{}_repeat_{}.pt".format(
-    num_samples, num_beta, epoch, idx_repeat))
+state_dict = torch.load("./output/model/AIWAE_dataset_{}_num_samples_{}_num_beta_{}_batch_size_128_epoch_{}_repeat_{}.pt".format(args.dataset, num_samples, num_beta, epoch, idx_repeat))
 aiwae.load_state_dict(state_dict['state_dict'])
 
 test_data_loader = DataLoader(test_data,
@@ -104,35 +110,7 @@ for idx_step, data in enumerate(train_data_loader):
     ###### calculate IWAE loss
     elbo = aiwae.calc_elbo(data, 5000)
     elbo_train += list(elbo.cpu().data.numpy())
-
-# assert(len(elbo_test) == 10000)
-# assert(len(elbo_train) == 60000)
-
-# assert(len(elbo_test) == 8070)
-# assert(len(elbo_train) == 24345)
     
-with open("./output/ELBO/AIWAE_num_samples_{}_num_beta_{}_batch_size_128_epoch_{}_repeat_{}.pt".format(num_samples, num_beta, epoch, idx_repeat), 'wb') as file_handle:
+with open("./output/ELBO/AIWAE_dataset_{}_num_samples_{}_num_beta_{}_batch_size_128_epoch_{}_repeat_{}.pkl".format(args.dataset, num_samples, num_beta, epoch, idx_repeat), 'wb') as file_handle:
           pickle.dump({'elbo_test': elbo_test,
                        'elbo_train': elbo_train}, file_handle)
-
-          
-# elbo_test_repeat = np.array(elbo_test_repeat)
-# elbo_train_repeat = np.array(elbo_train_repeat)
-
-# elbo_test_mean = []
-# elbo_train_mean = []
-
-# for i in range(5):
-#     elbo_test = np.copy(elbo_test_repeat[i,:])    
-#     elbo_test = np.array(elbo_test)
-#     elbo_test = elbo_test[elbo_test != -np.inf]
-#     elbo_test_mean.append(np.mean(elbo_test))
-
-#     elbo_train = np.copy(elbo_train_repeat[i,:])    
-#     elbo_train = np.array(elbo_train)
-#     elbo_train = elbo_train[elbo_train != -np.inf]
-#     elbo_train_mean.append(np.mean(elbo_train))
-# print("AIWAE: num_samples: {}, num_beta: {}".format(num_samples, num_beta))
-
-# print("elbo_test: {:.2f} +- {:.2f}".format(np.mean(elbo_test_mean), np.std(elbo_test_mean)))
-# print("elbo_train: {:.2f} +- {:.2f}".format(np.mean(elbo_train_mean), np.std(elbo_train_mean)))

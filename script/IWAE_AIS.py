@@ -18,8 +18,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
-import sys
-sys.path.append('/home/xqding/projects/AIWAE/MNIST/script/')
 from data_utils import *
 from AIWAE_models import *
 from sys import exit
@@ -36,51 +34,53 @@ parser.add_argument("--num_samples", type = int,
                     help = """num of samples used in Monte Carlo estimate of 
                               ELBO when using VAE; num of samples used in 
                               importance weighted ELBO when using IWAE.""")
+parser.add_argument("--hidden_size", type = int,
+                    required = True, default = 50)
 parser.add_argument("--epoch", type = int,
+                    required = True)
+parser.add_argument("--repeat", type = int,
                     required = True)
 
 ## parse parameters
 args = parser.parse_args()
 num_samples = args.num_samples
 epoch = args.epoch
+hidden_size = args.hidden_size
+idx_repeat = args.repeat
 
 ## read data
-with open('./data/data.pkl', 'rb') as file_handle:
-    data = pickle.load(file_handle)
-
-train_image = data['train_image']
-test_image = data['test_image']
-
-batch_size = 256
 if args.dataset == "MNIST":
+    with open("./data/MNIST.pkl", 'rb') as file_handle:
+        data = pickle.load(file_handle)
+        train_image = data['train_image']
+        test_image = data['test_image']
+        
     train_data = MNIST_Dataset(train_image)
-    test_data = MNIST_Dataset(test_image)    
-elif args.dataset == 'OMNIGLOT':
+    test_data = MNIST_Dataset(test_image)
+    
+elif args.dataset == "Omniglot":
+    with open("./data/Omniglot.pkl", 'rb') as file_handle:
+        data = pickle.load(file_handle)
+        train_image = data['train_image']
+        test_image = data['test_image']
+        
     train_data = OMNIGLOT_Dataset(train_image)
     test_data = OMNIGLOT_Dataset(test_image)
+    
 else:
-    raise("Dataset is wrong")
+    raise("Dataset is wrong!")
 
-print(os.uname())
+batch_size = 256
 
 ## IWAE models
-hidden_size = 50
 input_size = train_image.shape[-1]
 output_size = train_image.shape[-1]
 
 aiwae = AIWAE(input_size, hidden_size)
 aiwae = aiwae.cuda()
 
-job_idx = int(os.environ['SLURM_ARRAY_TASK_ID'])
-count = 40
-idx_repeat = job_idx // count
-idx_data = job_idx % 40
-#count = int(os.environ['SLURM_ARRAY_TASK_COUNT'])
-
 ## load the trained model
-# state_dict = torch.load("./output/model/IWAE_num_samples_{}_epoch_{}.pt".format(
-#     num_samples, epoch))
-state_dict = torch.load("./output/model/IWAE_num_samples_{}_batch_size_20_epoch_{}_repeat_{}.pt".format(
+state_dict = torch.load("./output/model/IWAE_dataset_{}_num_samples_{}_epoch_{}_repeat_{}.pt".format(args.dataset,
     num_samples, epoch, idx_repeat))
 aiwae.load_state_dict(state_dict['state_dict'])
 
@@ -95,16 +95,9 @@ epsilon_increase_alpha = 1.002
 epsilon_target = 0.6
 L = 10
 
-
 ## calculate NLL for test data
-num_test_samples = int(len(test_data)/count) + 1
-idx_start = idx_data*num_test_samples
-idx_end = (idx_data + 1) * num_test_samples
-print('num_test_samples: ', num_test_samples)
-print("idx_start: ", idx_start, 'idx_end: ', idx_end)
-test_data_loader = DataLoader(test_data[idx_start:idx_end],
+test_data_loader = DataLoader(test_data,
                               batch_size = batch_size)
-
 NLL_test = []
 log_w_test = []
 
@@ -148,12 +141,8 @@ for idx_step, data in enumerate(test_data_loader):
 
 
 ## calculate NLL for train data
-num_train_samples = int(len(train_data)/count) + 1
-idx_start = idx_data*num_train_samples
-idx_end = (idx_data + 1) * num_train_samples
-train_data_loader = DataLoader(train_data[idx_start:idx_end],
+train_data_loader = DataLoader(train_data,
                               batch_size = batch_size)
-
 NLL_train = []
 log_w_train = []
 
@@ -196,8 +185,8 @@ for idx_step, data in enumerate(train_data_loader):
     nll = list(nll.detach().cpu().data.numpy())
     NLL_train += nll
 
-with open("./output/NLL/IWAE_NLL_num_samples_{}_batch_size_20_epoch_{}_repeat_{}_idx_{}.pkl".format(
-        num_samples, epoch, idx_repeat, idx_data), 'wb') as file_handle:
+with open("./output/NLL/IWAE_NLL_dataset_{}_num_samples_{}_epoch_{}_repeat_{}.pkl".format(args.dataset,
+        num_samples, epoch, idx_repeat), 'wb') as file_handle:
     pickle.dump({'log_w_test': log_w_test,
                  'NLL_test': NLL_test,
                  'log_w_train': log_w_train,
